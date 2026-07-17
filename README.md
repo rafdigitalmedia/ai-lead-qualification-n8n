@@ -7,7 +7,7 @@
 
 ## 🎬 See It In Action
 
-![Workflow Demo](workflow.gif)
+![Workflow Demo](Workflow.gif)
 
 ## ✨ Features
 
