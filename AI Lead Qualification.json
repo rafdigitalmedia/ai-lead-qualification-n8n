@@ -1,0 +1,226 @@
+{
+  "name": "1. AI Lead Qualification",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "🎯 AI-Powered Lead Qualification System\n⚡ Real-time Lead Scoring & Routing\n📊 Hot (≥$10k) | Warm ($5k-$9k) | Cold (<$5k)",
+        "height": 112,
+        "width": 384
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        400,
+        -336
+      ],
+      "typeVersion": 1,
+      "id": "79a4455d-a5b4-415b-bacc-9712e8ef457e",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-flash-lite"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Analyze this lead:\n\nName: {{ $json[\"Full Name\"] }}\nEmail: {{ $json[\"Email Address\"] }}\nPhone: {{ $json[\"Phone Number\"] }}\nCompany: {{ $json[\"Company Name\"] }}\nMessage: {{ $json[\"Message/Requirements\"] }}\n\nProvide JSON:\n{\n  \"score\": number (0-100),\n  \"category\": \"Hot Lead\" or \"Warm Lead\" or \"Cold Lead\",\n  \"reason\": \"explanation\"\n}\nIMPORTANT: Respond ONLY with valid JSON. Do NOT include any text before or after the JSON. Do NOT say \"Here's\" or \"Sure\". Just the JSON object."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        176,
+        -176
+      ],
+      "id": "1b7b53b3-947c-41ea-8cfc-f8894b0db7ef",
+      "name": "🤖 AI: Lead Analysis",
+      "credentials": {
+        "googlePalmApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      }
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "1j64Z0cy8dGwDwNj7F4x9lUCEi-yfqUp2T2iMIvvrANQ",
+          "mode": "list",
+          "cachedResultName": "Lead Capture Form",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1j64Z0cy8dGwDwNj7F4x9lUCEi-yfqUp2T2iMIvvrANQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1j64Z0cy8dGwDwNj7F4x9lUCEi-yfqUp2T2iMIvvrANQ/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "bb96e4f8-f8cf-44b9-ba76-1d73936b77c0",
+      "name": "📊 Trigger: New Lead",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "DwmoTY69cugTub6Z",
+          "name": "📊 Trigger: New Lead"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get AI response\nconst aiResponse = $json.content.parts[0].text;\nconst jsonMatch = aiResponse.match(/\\{[\\s\\S]*\\}/);\nconst parsed = JSON.parse(jsonMatch[0]);\n\n// Get Google Sheets data from previous node\nconst sheetData = $('📊 Trigger: New Lead').first().json;\n\n// Extract budget from AI's reason\nconst reason = parsed.reason || \"\";\nconst budgetMatch = reason.match(/\\$?(\\d+(?:,\\d+)?)/);\n\nlet budget = 0;\nif (budgetMatch) {\n  budget = parseFloat(budgetMatch[1].replace(/,/g, ''));\n  \n  // Only multiply if it's a small number (< 100) AND mentions thousand/k\n  if (budget < 100 && (reason.toLowerCase().includes('thousand') || reason.toLowerCase().includes('k'))) {\n    budget = budget * 1000;\n  }\n}\n\n// Use AI's score to determine category\nlet category = \"Cold Lead\";\nif (parsed.score >= 80) {\n  category = \"Hot Lead\";\n} else if (parsed.score >= 50) {\n  category = \"Warm Lead\";\n}\n\nreturn [{\n  json: {\n    score: parsed.score || 0,\n    category: category,\n    budget: budget,\n    reason: reason,\n    fullName: sheetData[\"Full Name\"] || \"\",\n    email: sheetData[\"Email Address\"] || \"\",\n    company: sheetData[\"Company Name\"] || \"\",\n    message: sheetData[\"Message/Requirements\"] || \"\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        -80
+      ],
+      "id": "f9bf5ef4-7f56-43ba-97b4-3be99dba794d",
+      "name": "⚙️ Code: Data Processing"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7e7f2b38-d9b8-47a4-b2e6-2572e543ea9f",
+              "leftValue": "={{ $json.budget }}",
+              "rightValue": 10000,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        752,
+        0
+      ],
+      "id": "7633cf82-ff3b-48c0-9bc7-81d886830caa",
+      "name": "Router: Hot/Warm/Cold"
+    },
+    {
+      "parameters": {
+        "sendTo": "no1logoagency@gmail.com",
+        "subject": "=🔥 HOT LEAD (${{ $json.budget }}): {{ $json.fullName }}",
+        "message": "=<h2>🎯 HIGH BUDGET LEAD DETECTED!</h2>\n\n<p><strong>Name:</strong> {{ $json.fullName }}</p>\n<p><strong>Email:</strong> {{ $json.email }}</p>\n<p><strong>Company:</strong> {{ $json.company }}</p>\n<p><strong>Budget:</strong> ${{ $json.budget }}</p>\n<p><strong>Category:</strong> {{ $json.category }}</p>\n\n<hr>\n<h3>Message:</h3>\n<p>{{ $json.message }}</p>\n\n<hr>\n<p><em>⚡ Contact immediately!</em></p>",
+        "options": {
+          "senderName": "Lead Automation System"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        -144
+      ],
+      "id": "c04e306f-ee52-437e-8143-ed4cd80d63e8",
+      "name": "📧 Email: Hot Lead Alert",
+      "webhookId": "b17bd884-0bd1-448b-bc30-c19b63b066bf",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "Lm2pg09FJ5xmK0dU",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "🤖 AI: Lead Analysis": {
+      "main": [
+        [
+          {
+            "node": "⚙️ Code: Data Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Trigger: New Lead": {
+      "main": [
+        [
+          {
+            "node": "🤖 AI: Lead Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ Code: Data Processing": {
+      "main": [
+        [
+          {
+            "node": "Router: Hot/Warm/Cold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router: Hot/Warm/Cold": {
+      "main": [
+        [
+          {
+            "node": "📧 Email: Hot Lead Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "207a15ee-4367-4608-8767-e5f023d5a0b6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "51b813e5251a4934016b27af445ca3e90ef59420bdd28652af11ea5ed66132bb"
+  },
+  "nodeGroups": [],
+  "id": "uEoWDl1KdMlWCIij",
+  "tags": []
+}
